@@ -112,16 +112,10 @@ fn default_opacity() -> f32 {
 }
 
 /// Position in the frame
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
-}
-
-impl Default for Position {
-    fn default() -> Self {
-        Self { x: 0, y: 0 }
-    }
 }
 
 /// Color representation
@@ -257,7 +251,7 @@ mod tests {
     fn test_resolution_invalid_format() {
         let res = Resolution::Named("invalid".to_string());
         assert_eq!(res.dimensions(), (1920, 1080)); // Should default
-        
+
         let res = Resolution::Named("1920".to_string());
         assert_eq!(res.dimensions(), (1920, 1080)); // Should default
 
@@ -270,10 +264,10 @@ mod tests {
         // Test that serde uses our default functions
         let json = r#"{}"#;
         let transform: Transform = serde_json::from_str(json).unwrap();
-        assert_eq!(transform.scale, 1.0);           // Uses default_scale
-        assert_eq!(transform.opacity, 1.0);        // Uses default_opacity
-        assert_eq!(transform.rotation, 0.0);       // Uses serde default (0.0)
-        assert_eq!(transform.position.x, 0);       // Uses Position::default()
+        assert_eq!(transform.scale, 1.0); // Uses default_scale
+        assert_eq!(transform.opacity, 1.0); // Uses default_opacity
+        assert_eq!(transform.rotation, 0.0); // Uses serde default (0.0)
+        assert_eq!(transform.position.x, 0); // Uses Position::default()
         assert_eq!(transform.position.y, 0);
     }
 

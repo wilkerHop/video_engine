@@ -15,12 +15,12 @@ impl Compositor {
         color: [u8; 4],
     ) {
         let (buf_width, buf_height) = buffer.dimensions();
-        
+
         for dy in 0..height {
             for dx in 0..width {
                 let px = x + dx as i32;
                 let py = y + dy as i32;
-                
+
                 if px >= 0 && py >= 0 && (px as u32) < buf_width && (py as u32) < buf_height {
                     buffer.set_pixel(px as u32, py as u32, color);
                 }
@@ -43,18 +43,14 @@ impl Compositor {
     }
 
     /// Apply transform to coordinates
-    pub fn apply_transform(
-        x: i32,
-        y: i32,
-        transform: &Transform,
-    ) -> (i32, i32) {
+    pub fn apply_transform(x: i32, y: i32, transform: &Transform) -> (i32, i32) {
         // Apply position offset
         let tx = x + transform.position.x;
         let ty = y + transform.position.y;
-        
+
         // TODO: Apply scale and rotation
         // For now, just position offset
-        
+
         (tx, ty)
     }
 }
@@ -68,12 +64,12 @@ mod tests {
     fn test_fill_rect() {
         let mut fb = FrameBuffer::new(100, 100);
         fb.clear([0, 0, 0, 255]);
-        
+
         Compositor::fill_rect(&mut fb, 10, 10, 20, 20, [255, 0, 0, 255]);
-        
+
         // Inside rectangle should be red
         assert_eq!(fb.get_pixel(15, 15), Some([255, 0, 0, 255]));
-        
+
         // Outside should be black
         assert_eq!(fb.get_pixel(5, 5), Some([0, 0, 0, 255]));
     }
@@ -86,7 +82,7 @@ mod tests {
             rotation: 0.0,
             opacity: 1.0,
         };
-        
+
         let (tx, ty) = Compositor::apply_transform(10, 20, &transform);
         assert_eq!((tx, ty), (110, 70));
     }

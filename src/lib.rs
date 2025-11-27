@@ -1,9 +1,9 @@
-pub mod script;
-pub mod parser;
 pub mod assets;
+pub mod parser;
 pub mod renderer;
+pub mod script;
 
-pub use script::VideoScript;
+pub use assets::{Asset, AssetLoader, FontAsset, ImageAsset, VideoAsset};
 pub use parser::ScriptParser;
-pub use assets::{AssetLoader, Asset, ImageAsset, VideoAsset, FontAsset};
-pub use renderer::{FrameBuffer, Compositor, Timeline, RenderEngine};
+pub use renderer::{Compositor, FrameBuffer, RenderEngine, Timeline};
+pub use script::VideoScript;

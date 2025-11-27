@@ -1,4 +1,4 @@
-use crate::script::{VideoScript, Scene};
+use crate::script::VideoScript;
 
 /// Timeline for managing scene playback
 pub struct Timeline {
@@ -20,10 +20,10 @@ impl Timeline {
         let fps = script.metadata.fps;
         let total_duration = script.metadata.duration;
         let total_frames = (total_duration * fps as f32) as u32;
-        
+
         let mut segments = Vec::new();
         let mut current_frame = 0;
-        
+
         for scene in &script.scenes {
             let scene_frames = (scene.duration * fps as f32) as u32;
             segments.push(SceneSegment {
@@ -33,7 +33,7 @@ impl Timeline {
             });
             current_frame += scene_frames;
         }
-        
+
         Self {
             fps,
             total_frames,
@@ -70,14 +70,14 @@ impl Timeline {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::script::{Metadata, Resolution, Layer};
+    use crate::script::{Layer, Metadata, Resolution, Scene};
     use std::path::PathBuf;
 
     #[test]
     fn test_timeline_creation() {
         let script = create_test_script();
         let timeline = Timeline::from_script(&script);
-        
+
         assert_eq!(timeline.fps(), 30);
         assert_eq!(timeline.total_frames(), 300); // 10 seconds at 30fps
     }
@@ -86,11 +86,11 @@ mod tests {
     fn test_get_scene_at_frame() {
         let script = create_test_script();
         let timeline = Timeline::from_script(&script);
-        
+
         // First scene: 0-150 frames (5 seconds)
         assert_eq!(timeline.get_scene_at_frame(0), Some("scene1"));
         assert_eq!(timeline.get_scene_at_frame(100), Some("scene1"));
-        
+
         // Second scene: 150-300 frames
         assert_eq!(timeline.get_scene_at_frame(150), Some("scene2"));
         assert_eq!(timeline.get_scene_at_frame(200), Some("scene2"));

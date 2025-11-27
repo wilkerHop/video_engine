@@ -1,6 +1,6 @@
-use crate::renderer::{FrameBuffer, Compositor, Timeline};
-use crate::script::{VideoScript, Layer};
 use crate::assets::AssetLoader;
+use crate::renderer::{Compositor, FrameBuffer, Timeline};
+use crate::script::{Layer, VideoScript};
 use anyhow::Result;
 
 /// Main rendering engine
@@ -16,7 +16,7 @@ impl RenderEngine {
         let (width, height) = script.metadata.resolution.dimensions();
         let timeline = Timeline::from_script(&script);
         let frame_buffer = FrameBuffer::new(width, height);
-        
+
         Self {
             script,
             timeline,
@@ -25,27 +25,31 @@ impl RenderEngine {
     }
 
     /// Render a single frame
-    pub fn render_frame(&mut self, frame_number: u32, _asset_loader: &mut AssetLoader) -> Result<()> {
+    pub fn render_frame(
+        &mut self,
+        frame_number: u32,
+        _asset_loader: &mut AssetLoader,
+    ) -> Result<()> {
         // Clear frame
         self.frame_buffer.clear([0, 0, 0, 255]);
-        
+
         // Get current scene ID
         if let Some(scene_id) = self.timeline.get_scene_at_frame(frame_number) {
             // Clone the scene ID to avoid borrow checker issues
             let scene_id = scene_id.to_string();
-            
+
             // Find and render the scene
             if let Some(scene) = self.script.scenes.iter().find(|s| s.id == scene_id) {
                 // Collect layers to avoid borrowing issues
                 let layers: Vec<_> = scene.layers.clone();
-                
+
                 // Render each layer
                 for layer in &layers {
                     self.render_layer(layer)?;
                 }
             }
         }
-        
+
         Ok(())
     }
 
@@ -62,7 +66,12 @@ impl RenderEngine {
                 let (x, y) = Compositor::apply_transform(0, 0, transform);
                 Compositor::fill_rect(&mut self.frame_buffer, x, y, 100, 100, [200, 100, 100, 255]);
             }
-            Layer::Text { content, position, color, .. } => {
+            Layer::Text {
+                content,
+                position,
+                color,
+                ..
+            } => {
                 let rgba = [color.r, color.g, color.b, color.a];
                 Compositor::draw_text_placeholder(
                     &mut self.frame_buffer,
@@ -73,7 +82,7 @@ impl RenderEngine {
                 );
             }
         }
-        
+
         Ok(())
     }
 
@@ -110,18 +119,16 @@ mod tests {
                 duration: 10.0,
                 description: None,
             },
-            scenes: vec![
-                Scene {
-                    id: "scene1".into(),
-                    duration: 10.0,
-                    layers: vec![Layer::Image {
-                        source: PathBuf::from("test.png"),
-                        effects: vec![],
-                        transform: Default::default(),
-                    }],
-                    transition: None,
-                },
-            ],
+            scenes: vec![Scene {
+                id: "scene1".into(),
+                duration: 10.0,
+                layers: vec![Layer::Image {
+                    source: PathBuf::from("test.png"),
+                    effects: vec![],
+                    transform: Default::default(),
+                }],
+                transition: None,
+            }],
             audio: None,
         }
     }

@@ -56,7 +56,7 @@ impl ScriptParser {
         // Validate total duration matches scenes
         let total_scene_duration: f32 = script.scenes.iter().map(|s| s.duration).sum();
         let duration_diff = (total_scene_duration - script.metadata.duration).abs();
-        
+
         if duration_diff > 0.1 {
             eprintln!(
                 "Warning: Total scene duration ({:.2}s) differs from metadata duration ({:.2}s)",
@@ -199,7 +199,10 @@ mod tests {
         let script: VideoScript = serde_json::from_str(json).unwrap();
         let result = ScriptParser::validate_script(&script);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("must have at least one layer"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("must have at least one layer"));
     }
 
     #[test]
@@ -233,6 +236,9 @@ mod tests {
     fn test_parse_nonexistent_file() {
         let result = ScriptParser::parse_json(Path::new("/nonexistent/file.json"));
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Failed to read script file"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to read script file"));
     }
 }

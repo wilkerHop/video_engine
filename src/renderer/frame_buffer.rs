@@ -53,14 +53,14 @@ impl FrameBuffer {
         if let Some(bg) = self.get_pixel(x, y) {
             let alpha = color[3] as f32 / 255.0;
             let inv_alpha = 1.0 - alpha;
-            
+
             let blended = [
                 (color[0] as f32 * alpha + bg[0] as f32 * inv_alpha) as u8,
                 (color[1] as f32 * alpha + bg[1] as f32 * inv_alpha) as u8,
                 (color[2] as f32 * alpha + bg[2] as f32 * inv_alpha) as u8,
                 255, // Output alpha is always opaque
             ];
-            
+
             self.set_pixel(x, y, blended);
         }
     }
@@ -78,17 +78,17 @@ impl FrameBuffer {
     /// Save as PPM (simple image format)
     pub fn save_ppm(&self, path: &str) -> Result<()> {
         let mut file = File::create(path)?;
-        
+
         // PPM header
         writeln!(file, "P6")?;
         writeln!(file, "{} {}", self.width, self.height)?;
         writeln!(file, "255")?;
-        
+
         // Write RGB data (skip alpha channel)
         for chunk in self.pixels.chunks_exact(4) {
             file.write_all(&chunk[0..3])?;
         }
-        
+
         Ok(())
     }
 }
@@ -108,7 +108,7 @@ mod tests {
     fn test_clear() {
         let mut fb = FrameBuffer::new(100, 100);
         fb.clear([255, 0, 0, 255]); // Red
-        
+
         assert_eq!(fb.get_pixel(0, 0), Some([255, 0, 0, 255]));
         assert_eq!(fb.get_pixel(50, 50), Some([255, 0, 0, 255]));
     }
@@ -117,7 +117,7 @@ mod tests {
     fn test_set_get_pixel() {
         let mut fb = FrameBuffer::new(100, 100);
         fb.set_pixel(10, 20, [100, 150, 200, 255]);
-        
+
         assert_eq!(fb.get_pixel(10, 20), Some([100, 150, 200, 255]));
         assert_eq!(fb.get_pixel(100, 100), None); // Out of bounds
     }
@@ -126,10 +126,10 @@ mod tests {
     fn test_alpha_blending() {
         let mut fb = FrameBuffer::new(100, 100);
         fb.clear([255, 255, 255, 255]); // White background
-        
+
         // Blend 50% transparent red
         fb.blend_pixel(50, 50, [255, 0, 0, 128]);
-        
+
         let pixel = fb.get_pixel(50, 50).unwrap();
         // Should be approximately pink (255, 127, 127, 255)
         assert!(pixel[0] == 255);

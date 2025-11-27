@@ -188,7 +188,7 @@ impl std::fmt::Display for AssetStats {
 mod tests {
     use super::*;
     use std::fs;
-    use std::io::Write;
+    use std::path::PathBuf;
     use tempfile::TempDir;
 
     #[test]
@@ -223,17 +223,17 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let img_path = temp_dir.path().join("cached.png");
         fs::write(&img_path, b"data").unwrap();
-        
+
         let mut loader = AssetLoader::new(temp_dir.path());
-        
+
         // Load once
         loader.load_image(Path::new("cached.png")).unwrap();
         let stats1 = loader.stats();
-        
+
         // Load again - should use cache
         loader.load_image(Path::new("cached.png")).unwrap();
         let stats2 = loader.stats();
-        
+
         assert_eq!(stats1.total, stats2.total); // Should be same (cached)
         assert_eq!(stats2.total, 1);
     }
@@ -259,11 +259,11 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let vid_path = temp_dir.path().join("test.mp4");
         fs::write(&vid_path, b"fake video").unwrap();
-        
+
         let mut loader = AssetLoader::new(temp_dir.path());
         let result = loader.load_video(Path::new("test.mp4"));
         assert!(result.is_ok());
-        
+
         let video = result.unwrap();
         assert_eq!(video.width, 1920);
         assert_eq!(video.height, 1080);
@@ -275,11 +275,11 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let font_path = temp_dir.path().join("font.ttf");
         fs::write(&font_path, b"fake font data").unwrap();
-        
+
         let mut loader = AssetLoader::new(temp_dir.path());
         let result = loader.load_font(Path::new("font.ttf"));
         assert!(result.is_ok());
-        
+
         let stats = loader.stats();
         assert_eq!(stats.fonts, 1);
         assert_eq!(stats.total, 1);
@@ -290,12 +290,12 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let img_path = temp_dir.path().join("test.png");
         fs::write(&img_path, b"data").unwrap();
-        
+
         let mut loader = AssetLoader::new(temp_dir.path());
         loader.load_image(Path::new("test.png")).unwrap();
-        
+
         assert_eq!(loader.stats().total, 1);
-        
+
         loader.clear();
         assert_eq!(loader.stats().total, 0);
     }
@@ -315,4 +315,3 @@ mod tests {
         assert!(display.contains("Fonts: 2"));
     }
 }
-
