@@ -10,6 +10,10 @@ FILES_WITH_FUNCTIONS=(
     "src/script.rs"
     "src/parser.rs"
     "src/assets.rs"
+    "src/renderer/frame_buffer.rs"
+    "src/renderer/compositor.rs"
+    "src/renderer/timeline.rs"
+    "src/renderer/engine.rs"
 )
 
 #Check each file has a test module
