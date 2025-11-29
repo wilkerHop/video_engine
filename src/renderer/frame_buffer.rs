@@ -75,6 +75,11 @@ impl FrameBuffer {
         &self.pixels
     }
 
+    /// Copy data from a slice into the buffer
+    pub fn copy_from_slice(&mut self, data: &[u8]) {
+        self.pixels.copy_from_slice(data);
+    }
+
     /// Save as PPM (simple image format)
     pub fn save_ppm(&self, path: &str) -> Result<()> {
         let mut file = File::create(path)?;

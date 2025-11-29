@@ -1,5 +1,5 @@
 use crate::assets::AssetLoader;
-use crate::renderer::{Compositor, FrameBuffer, Timeline};
+use crate::renderer::{Compositor, FrameBuffer, GpuRenderer, Timeline};
 use crate::script::{Layer, VideoScript};
 use anyhow::Result;
 
@@ -8,6 +8,8 @@ pub struct RenderEngine {
     script: VideoScript,
     timeline: Timeline,
     frame_buffer: FrameBuffer,
+    #[allow(dead_code)]
+    gpu_renderer: Option<GpuRenderer>,
 }
 
 impl RenderEngine {
@@ -17,10 +19,20 @@ impl RenderEngine {
         let timeline = Timeline::from_script(&script);
         let frame_buffer = FrameBuffer::new(width, height);
 
+        // Try to initialize GPU renderer (optional - falls back to CPU if fails)
+        let gpu_renderer = pollster::block_on(async { GpuRenderer::new(width, height).await.ok() });
+
+        if gpu_renderer.is_some() {
+            println!("✨ GPU renderer initialized successfully");
+        } else {
+            println!("ℹ️  Using CPU rendering (GPU unavailable or initialization failed)");
+        }
+
         Self {
             script,
             timeline,
             frame_buffer,
+            gpu_renderer,
         }
     }
 
@@ -154,5 +166,17 @@ mod tests {
             }],
             audio: None,
         }
+    }
+
+    #[test]
+    fn test_gpu_renderer_integration() {
+        let script = create_test_script();
+        let engine = RenderEngine::new(script);
+
+        // Engine should be created successfully regardless of GPU availability
+        assert_eq!(engine.timeline().total_frames(), 300);
+
+        // GPU renderer field exists (even if None)
+        // This test verifies the integration compiles and runs
     }
 }
