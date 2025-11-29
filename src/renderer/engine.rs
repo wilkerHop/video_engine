@@ -91,6 +91,29 @@ impl RenderEngine {
         self.frame_buffer.save_ppm(path)
     }
 
+    /// Render all frames to the output directory
+    pub fn render(
+        &mut self,
+        output_dir: &std::path::Path,
+        asset_loader: &mut AssetLoader,
+    ) -> Result<()> {
+        let total_frames = self.timeline.total_frames();
+
+        for frame in 0..total_frames {
+            if frame % 30 == 0 {
+                println!("  Rendering frame {}/{}", frame, total_frames);
+            }
+
+            self.render_frame(frame, asset_loader)?;
+
+            let filename = format!("frame_{}.ppm", frame);
+            let path = output_dir.join(filename);
+            self.save_frame(path.to_str().unwrap())?;
+        }
+
+        Ok(())
+    }
+
     /// Get timeline
     pub fn timeline(&self) -> &Timeline {
         &self.timeline
