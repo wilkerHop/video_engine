@@ -20,6 +20,11 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install Linux Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libasound2-dev libudev-dev libxkbcommon-dev libwayland-dev
+
       - name: Cache cargo registry
         uses: actions/cache@v3
         with:
@@ -80,6 +85,11 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+
+      - name: Install Linux Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libasound2-dev libudev-dev libxkbcommon-dev libwayland-dev
 
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
