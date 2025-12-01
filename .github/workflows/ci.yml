@@ -92,14 +92,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg libasound2-dev libudev-dev libxkbcommon-dev libwayland-dev
+          sudo snap install blender --classic || echo "Snap failed, skipping Blender"
 
       - name: Install macOS Dependencies
         if: runner.os == 'macOS'
-        run: brew install ffmpeg
+        run: |
+          brew install ffmpeg
+          brew install --cask blender
 
       - name: Install Windows Dependencies
         if: runner.os == 'Windows'
-        run: choco install ffmpeg
+        run: |
+          choco install ffmpeg
+          choco install blender
 
       - name: Build
         run: cargo build --release --verbose
