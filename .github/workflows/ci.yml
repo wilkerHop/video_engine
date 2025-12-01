@@ -135,7 +135,7 @@ jobs:
       - name: Upload Video Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: demo-video
+          name: demo-video-${{ runner.os }}
           path: output.mp4
 
       - name: Upload Binary Artifact
