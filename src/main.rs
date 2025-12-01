@@ -1,16 +1,68 @@
 use anyhow::Result;
+use clap::{Parser, Subcommand};
+use interstellar_triangulum::templates::{ScriptTemplate, TemplateType};
 use interstellar_triangulum::{AssetLoader, ScriptParser};
 use std::path::Path;
 
+#[derive(Parser)]
+#[command(name = "interstellar-triangulum")]
+#[command(about = "Digital Artisan Video Engine", long_about = None)]
+struct Cli {
+    /// Path to the script file to render
+    #[arg(value_name = "SCRIPT")]
+    script: Option<String>,
+
+    /// Use Blender renderer (pass "blender")
+    #[arg(long)]
+    renderer: Option<String>,
+
+    /// Export analysis report to file (supports .json, .md)
+    #[arg(long)]
+    export_report: Option<String>,
+
+    /// Fail if narrative score is below threshold
+    #[arg(long)]
+    fail_on_low_score: Option<u32>,
+
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Generate a script template
+    Template {
+        /// Type of template to generate
+        #[arg(value_enum)]
+        #[arg(name = "type")]
+        template_type: TemplateType,
+
+        /// Total duration in seconds
+        #[arg(short, long, default_value_t = 60.0)]
+        duration: f32,
+    },
+}
+
 fn main() -> Result<()> {
+    let cli = Cli::parse();
+
+    // Handle subcommands
+    if let Some(Commands::Template {
+        template_type,
+        duration,
+    }) = cli.command
+    {
+        let script = ScriptTemplate::generate(template_type, duration);
+        println!("{}", serde_json::to_string_pretty(&script)?);
+        return Ok(());
+    }
+
     println!("🎬 Video Engine - Digital Artisan PoC\n");
 
-    // Parse script file from args or use default
-    let args: Vec<String> = std::env::args().collect();
-    println!("DEBUG: Args: {:?}", args);
+    // Default behavior: Parse script
     let default_path = "examples/simple.json".to_string();
-    let script_path = args.get(1).unwrap_or(&default_path);
-    let example_script = Path::new(script_path);
+    let script_path = cli.script.unwrap_or(default_path);
+    let example_script = Path::new(&script_path);
 
     if example_script.exists() {
         println!("Parsing script: {}", example_script.display());
@@ -24,10 +76,45 @@ fn main() -> Result<()> {
         let mut loader = AssetLoader::new(base_path);
 
         // Pillar 2: Narrative (Engaging)
-        interstellar_triangulum::context::narrative::NarrativeContext::run(&script);
+        let narrative_report = interstellar_triangulum::context::narrative::NarrativeContext::run(&script);
 
         // Pillar 3: Credibility (Trustworthy)
         interstellar_triangulum::context::credibility::CredibilityContext::run(&script);
+
+        // Export Report
+        if let Some(path) = cli.export_report {
+            let path = Path::new(&path);
+            let content = if path.extension().map_or(false, |ext| ext == "json") {
+                // JSON Export
+                serde_json::to_string_pretty(&narrative_report)?
+            } else {
+                // Markdown Export
+                let mut md = format!(
+                    "# Narrative Analysis Report\n\n**Score**: {}/100\n\n## Structure\n- Valid: {}\n- Errors: {:?}\n\n## Recommendations\n",
+                    narrative_report.score,
+                    narrative_report.structure_valid,
+                    narrative_report.structure_errors
+                );
+
+                for rec in &narrative_report.structure_recommendations {
+                    md.push_str(&format!("- **[{:?}]** {}: {}\n", rec.severity, rec.category, rec.message));
+                }
+                md
+            };
+            std::fs::write(path, content)?;
+            println!("\n📄 Report exported to: {}", path.display());
+        }
+
+        // Fail on low score
+        if let Some(threshold) = cli.fail_on_low_score {
+            if narrative_report.score < threshold {
+                eprintln!(
+                    "\n❌ Narrative score {} is below threshold {}",
+                    narrative_report.score, threshold
+                );
+                std::process::exit(1);
+            }
+        }
 
         // Pillar 1: Performance (Fast) - Asset Loading & Rendering
         println!("\n🎨 Loading assets...");
@@ -61,9 +148,7 @@ fn main() -> Result<()> {
         }
 
         let output_dir = Path::new("output");
-        let use_blender = args
-            .windows(2)
-            .any(|w| w[0] == "--renderer" && w[1] == "blender");
+        let use_blender = cli.renderer.as_deref() == Some("blender");
 
         interstellar_triangulum::context::performance::PerformanceContext::run(
             &script,
@@ -81,6 +166,7 @@ fn main() -> Result<()> {
         );
         println!("   Create an example script to test the engine.");
         println!("\n💡 See examples/simple.json for reference format");
+        println!("   Or generate a template: interstellar-triangulum template explainer");
     }
 
     Ok(())

@@ -19,6 +19,7 @@ num_cpus = "1.17.0"
 sysinfo = "0.30.5"
 unicode-segmentation = "1.12.0"
 regex = "1.12.2"
+clap = { version = "4.4", features = ["derive"] }
 
 [dev-dependencies]
 tempfile = "3"

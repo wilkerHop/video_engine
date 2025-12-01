@@ -1,34 +1,36 @@
 use crate::script::{Scene, SceneType, VideoScript};
 use unicode_segmentation::UnicodeSegmentation;
 
-#[derive(Debug, Clone)]
+use serde::Serialize;
+
+#[derive(Debug, Clone, Serialize)]
 pub struct PacingAlert {
     pub scene_index: usize,
     pub wpm: f32,
     pub message: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct RetentionWarning {
     pub scene_index: usize,
     pub message: String,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub enum Severity {
     Info,
     Warning,
     Error,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct StructureRecommendation {
     pub severity: Severity,
     pub message: String,
     pub category: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct NarrativeReport {
     pub structure_valid: bool,
     pub structure_errors: Vec<String>,
