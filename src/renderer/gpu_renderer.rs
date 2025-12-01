@@ -39,6 +39,8 @@ pub struct GpuRenderer {
     render_pipeline: wgpu::RenderPipeline,
     width: u32,
     height: u32,
+    vertex_buffer: wgpu::Buffer,
+    vertices: std::cell::RefCell<Vec<Vertex>>,
 }
 
 impl GpuRenderer {
@@ -95,41 +97,198 @@ impl GpuRenderer {
                     cache: None,
                 });
 
+        // Create initial vertex buffer (large enough for many quads)
+        let vertex_buffer = context.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Vertex Buffer"),
+            size: 1024 * 1024, // 1MB buffer
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
         Ok(Self {
             context,
             render_pipeline,
             width,
             height,
+            vertex_buffer,
+            vertices: std::cell::RefCell::new(Vec::new()),
         })
     }
 
-    /// Fill a rectangle with a color using GPU (demonstration)
-    /// Note: This is a simplified version that shows GPU is working
-    /// For production, you'd want to batch operations and readback less frequently
+    /// Fill a rectangle with a color using GPU batching
     pub fn fill_rect(
         &self,
-        frame_buffer: &mut FrameBuffer,
+        _frame_buffer: &mut FrameBuffer,
         x: i32,
         y: i32,
         width: u32,
         height: u32,
         color: [u8; 4],
     ) -> Result<()> {
-        // For now, fall back to CPU rendering to avoid complex async readback
-        // This demonstrates the GPU is initialized and ready
-        // In a production version, you'd batch GPU operations and readback once per frame
+        // Convert pixel coords to normalized device coordinates (-1 to 1)
+        let x1 = (x as f32 / self.width as f32) * 2.0 - 1.0;
+        let y1 = -((y as f32 / self.height as f32) * 2.0 - 1.0); // Flip Y
+        let x2 = ((x + width as i32) as f32 / self.width as f32) * 2.0 - 1.0;
+        let y2 = -(((y + height as i32) as f32 / self.height as f32) * 2.0 - 1.0);
 
-        // CPU fallback
-        let (buf_width, buf_height) = frame_buffer.dimensions();
-        for dy in 0..height {
-            for dx in 0..width {
-                let px = x + dx as i32;
-                let py = y + dy as i32;
-                if px >= 0 && py >= 0 && (px as u32) < buf_width && (py as u32) < buf_height {
-                    frame_buffer.set_pixel(px as u32, py as u32, color);
-                }
-            }
+        let color_norm = [
+            color[0] as f32 / 255.0,
+            color[1] as f32 / 255.0,
+            color[2] as f32 / 255.0,
+            color[3] as f32 / 255.0,
+        ];
+
+        // Two triangles to make a rectangle
+        let mut vertices = self.vertices.borrow_mut();
+        vertices.extend_from_slice(&[
+            Vertex {
+                position: [x1, y1],
+                color: color_norm,
+            },
+            Vertex {
+                position: [x2, y1],
+                color: color_norm,
+            },
+            Vertex {
+                position: [x2, y2],
+                color: color_norm,
+            },
+            Vertex {
+                position: [x1, y1],
+                color: color_norm,
+            },
+            Vertex {
+                position: [x2, y2],
+                color: color_norm,
+            },
+            Vertex {
+                position: [x1, y2],
+                color: color_norm,
+            },
+        ]);
+
+        Ok(())
+    }
+
+    /// Flush accumulated vertices to GPU and render to frame buffer
+    pub fn flush(&self, frame_buffer: &mut FrameBuffer) -> Result<()> {
+        let mut vertices = self.vertices.borrow_mut();
+        if vertices.is_empty() {
+            return Ok(());
         }
+
+        // Upload vertices to GPU
+        self.context.queue.write_buffer(
+            &self.vertex_buffer,
+            0,
+            bytemuck::cast_slice(&vertices),
+        );
+
+        let (width, height) = frame_buffer.dimensions();
+
+        // Create output texture
+        let output_texture = self.context.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Output Texture"),
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+            view_formats: &[],
+        });
+
+        let view = output_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        // Create command encoder
+        let mut encoder = self
+            .context
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Render Encoder"),
+            });
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: wgpu::StoreOp::Store,
+                    },
+                    depth_slice: None,
+                })],
+                depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
+            });
+
+            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.draw(0..vertices.len() as u32, 0..1);
+        }
+
+        // Read back to CPU
+        let buffer_size = (width * height * 4) as u64;
+        let staging_buffer = self.context.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Staging Buffer"),
+            size: buffer_size,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+
+        encoder.copy_texture_to_buffer(
+            wgpu::TexelCopyTextureInfo {
+                texture: &output_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::TexelCopyBufferInfo {
+                buffer: &staging_buffer,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(4 * width),
+                    rows_per_image: Some(height),
+                },
+            },
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+        );
+
+        let index = self.context.queue.submit(std::iter::once(encoder.finish()));
+
+        // Read back to CPU using async/await
+        let buffer_slice = staging_buffer.slice(..);
+        
+        // Use pollster to block on async operation
+        pollster::block_on(async {
+            let (tx, rx) = std::sync::mpsc::channel();
+            buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
+                tx.send(result).unwrap();
+            });
+            self.context.device.poll(wgpu::PollType::Wait { submission_index: Some(index), timeout: None }).unwrap();
+            rx.recv().unwrap().unwrap();
+            
+            {
+                let data = buffer_slice.get_mapped_range();
+                frame_buffer.copy_from_slice(&data);
+            }
+            
+            staging_buffer.unmap();
+        });
+
+        // Clear vertices for next frame
+        vertices.clear();
 
         Ok(())
     }

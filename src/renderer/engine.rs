@@ -59,9 +59,20 @@ impl RenderEngine {
                 for layer in &layers {
                     self.render_layer(layer)?;
                 }
+                
+                // Flush GPU commands after rendering all layers
+                self.flush_gpu()?;
             }
         }
 
+        Ok(())
+    }
+
+    /// Flush GPU commands if available
+    fn flush_gpu(&mut self) -> Result<()> {
+        if let Some(gpu) = &self.gpu_renderer {
+            gpu.flush(&mut self.frame_buffer)?;
+        }
         Ok(())
     }
 
@@ -71,12 +82,24 @@ impl RenderEngine {
             Layer::Image { transform, .. } => {
                 // Placeholder: draw colored rectangle for image
                 let (x, y) = Compositor::apply_transform(0, 0, transform);
-                Compositor::fill_rect(&mut self.frame_buffer, x, y, 100, 100, [100, 100, 200, 255]);
+                let color = [100, 100, 200, 255];
+                
+                if let Some(gpu) = &self.gpu_renderer {
+                    gpu.fill_rect(&mut self.frame_buffer, x, y, 100, 100, color)?;
+                } else {
+                    Compositor::fill_rect(&mut self.frame_buffer, x, y, 100, 100, color);
+                }
             }
             Layer::Video { transform, .. } => {
                 // Placeholder: draw colored rectangle for video
                 let (x, y) = Compositor::apply_transform(0, 0, transform);
-                Compositor::fill_rect(&mut self.frame_buffer, x, y, 100, 100, [200, 100, 100, 255]);
+                let color = [200, 100, 100, 255];
+                
+                if let Some(gpu) = &self.gpu_renderer {
+                    gpu.fill_rect(&mut self.frame_buffer, x, y, 100, 100, color)?;
+                } else {
+                    Compositor::fill_rect(&mut self.frame_buffer, x, y, 100, 100, color);
+                }
             }
             Layer::Text {
                 content,
@@ -178,5 +201,16 @@ mod tests {
 
         // GPU renderer field exists (even if None)
         // This test verifies the integration compiles and runs
+    }
+
+    #[test]
+    fn test_render_frame_with_gpu() {
+        let script = create_test_script();
+        let mut engine = RenderEngine::new(script);
+        let mut asset_loader = AssetLoader::new(".");
+        
+        // Should not panic even if GPU is not available (fallback to CPU)
+        // If GPU is available, it exercises the flush() logic
+        engine.render_frame(0, &mut asset_loader).unwrap();
     }
 }
