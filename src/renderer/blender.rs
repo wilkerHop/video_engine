@@ -91,6 +91,25 @@ def create_text_material(name, color):
     mat.blend_method = 'BLEND'
     return mat
 
+def keyframe_visibility(obj, start_frame, end_frame):
+    # Hide initially
+    obj.hide_render = True
+    obj.hide_viewport = True
+    obj.keyframe_insert(data_path="hide_render", frame=0)
+    obj.keyframe_insert(data_path="hide_viewport", frame=0)
+
+    # Show at start
+    obj.hide_render = False
+    obj.hide_viewport = False
+    obj.keyframe_insert(data_path="hide_render", frame=start_frame)
+    obj.keyframe_insert(data_path="hide_viewport", frame=start_frame)
+
+    # Hide at end
+    obj.hide_render = True
+    obj.hide_viewport = True
+    obj.keyframe_insert(data_path="hide_render", frame=end_frame)
+    obj.keyframe_insert(data_path="hide_viewport", frame=end_frame)
+
 def to_blender_coords(x, y, res_x, res_y):
     # Map 0,0 (top-left) to -W/2, H/2
     # Scale: 100px = 1 unit
@@ -142,9 +161,10 @@ def to_blender_coords(x, y, res_x, res_y):
         ));
 
         // Process scenes and layers
-        let mut _current_frame = 0;
+        let mut current_frame = 0;
         for scene in &self.script.scenes {
             let scene_duration_frames = (scene.duration * self.script.metadata.fps as f32) as u32;
+            let scene_end_frame = current_frame + scene_duration_frames;
 
             for (layer_idx, layer) in scene.layers.iter().enumerate() {
                 match layer {
@@ -184,6 +204,12 @@ def to_blender_coords(x, y, res_x, res_y):
                         // Apply extra scale
                         py.push_str(&format!("    obj.scale.x *= {}\n", transform.scale));
                         py.push_str(&format!("    obj.scale.y *= {}\n", transform.scale));
+
+                        // Visibility Keyframing
+                        py.push_str(&format!(
+                            "    keyframe_visibility(obj, {}, {})\n",
+                            current_frame, scene_end_frame
+                        ));
                     }
                     Layer::Text {
                         content,
@@ -229,11 +255,17 @@ def to_blender_coords(x, y, res_x, res_y):
                         ));
                         py.push_str("obj.location.x = bx\n");
                         py.push_str("obj.location.y = by\n");
+
+                        // Visibility Keyframing
+                        py.push_str(&format!(
+                            "keyframe_visibility(obj, {}, {})\n",
+                            current_frame, scene_end_frame
+                        ));
                     }
                     _ => {}
                 }
             }
-            _current_frame += scene_duration_frames;
+            current_frame += scene_duration_frames;
         }
 
         py.push_str("\n# Render animation\n");

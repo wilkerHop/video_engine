@@ -52,6 +52,25 @@ def create_text_material(name, color):
     mat.blend_method = 'BLEND'
     return mat
 
+def keyframe_visibility(obj, start_frame, end_frame):
+    # Hide initially
+    obj.hide_render = True
+    obj.hide_viewport = True
+    obj.keyframe_insert(data_path="hide_render", frame=0)
+    obj.keyframe_insert(data_path="hide_viewport", frame=0)
+
+    # Show at start
+    obj.hide_render = False
+    obj.hide_viewport = False
+    obj.keyframe_insert(data_path="hide_render", frame=start_frame)
+    obj.keyframe_insert(data_path="hide_viewport", frame=start_frame)
+
+    # Hide at end
+    obj.hide_render = True
+    obj.hide_viewport = True
+    obj.keyframe_insert(data_path="hide_render", frame=end_frame)
+    obj.keyframe_insert(data_path="hide_viewport", frame=end_frame)
+
 def to_blender_coords(x, y, res_x, res_y):
     # Map 0,0 (top-left) to -W/2, H/2
     # Scale: 100px = 1 unit
@@ -101,6 +120,7 @@ if mat:
     obj.location.y = by
     obj.scale.x *= 1
     obj.scale.y *= 1
+    keyframe_visibility(obj, 0, 180)
 
 # Layer: Text_hook_1
 bpy.ops.object.text_add()
@@ -118,6 +138,7 @@ obj.data.materials.append(mat)
 bx, by = to_blender_coords(960, 440, 1920, 1080)
 obj.location.x = bx
 obj.location.y = by
+keyframe_visibility(obj, 0, 180)
 
 # Layer: Text_hook_2
 bpy.ops.object.text_add()
@@ -135,6 +156,7 @@ obj.data.materials.append(mat)
 bx, by = to_blender_coords(960, 600, 1920, 1080)
 obj.location.x = bx
 obj.location.y = by
+keyframe_visibility(obj, 0, 180)
 
 # Layer: Image_bridge_0
 mat, img_w, img_h = create_image_material('Mat_Image_bridge_0', 'assets/pipeline.png')
@@ -150,6 +172,7 @@ if mat:
     obj.location.y = by
     obj.scale.x *= 1
     obj.scale.y *= 1
+    keyframe_visibility(obj, 180, 480)
 
 # Layer: Text_bridge_1
 bpy.ops.object.text_add()
@@ -167,6 +190,7 @@ obj.data.materials.append(mat)
 bx, by = to_blender_coords(960, 100, 1920, 1080)
 obj.location.x = bx
 obj.location.y = by
+keyframe_visibility(obj, 180, 480)
 
 # Layer: Image_payoff_0
 mat, img_w, img_h = create_image_material('Mat_Image_payoff_0', 'assets/result.png')
@@ -182,6 +206,7 @@ if mat:
     obj.location.y = by
     obj.scale.x *= 0
     obj.scale.y *= 0
+    keyframe_visibility(obj, 480, 600)
 
 # Layer: Text_payoff_1
 bpy.ops.object.text_add()
@@ -199,6 +224,7 @@ obj.data.materials.append(mat)
 bx, by = to_blender_coords(960, 900, 1920, 1080)
 obj.location.x = bx
 obj.location.y = by
+keyframe_visibility(obj, 480, 600)
 
 # Render animation
 bpy.ops.render.render(animation=True)
