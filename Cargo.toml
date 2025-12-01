@@ -20,6 +20,8 @@ sysinfo = "0.30.5"
 unicode-segmentation = "1.12.0"
 regex = "1.12.2"
 clap = { version = "4.4", features = ["derive"] }
+config = "0.13"
+toml = "0.8"
 
 [dev-dependencies]
 tempfile = "3"

@@ -6,6 +6,7 @@ pub mod parser;
 pub mod renderer;
 pub mod script;
 pub mod templates;
+pub mod config;
 
 pub use assets::AssetLoader;
 pub use audio::{AudioDecoder, AudioMixer};

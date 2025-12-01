@@ -16,7 +16,7 @@ impl PerformanceContext {
         println!("\n🎬 Rendering frames...");
 
         if !output_dir.exists() {
-            std::fs::create_dir(output_dir)?;
+            std::fs::create_dir_all(output_dir)?;
         }
 
         if use_blender {
