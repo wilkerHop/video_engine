@@ -69,12 +69,15 @@ impl CredibilityAnalyzer {
             for citation in citations {
                 let is_url = citation.starts_with("http");
                 let is_academic = citation.contains('[') && citation.contains(']'); // Naive check for [Author, Year]
-                
+
                 if !is_url && !is_academic && citation.len() < 10 {
-                     items.push(ChecklistItem {
+                    items.push(ChecklistItem {
                         passed: false,
                         category: "Citations".to_string(),
-                        message: format!("Citation '{}' is too vague. Use a URL or academic format.", citation),
+                        message: format!(
+                            "Citation '{}' is too vague. Use a URL or academic format.",
+                            citation
+                        ),
                     });
                 }
             }
@@ -86,7 +89,10 @@ impl CredibilityAnalyzer {
         }
 
         // 2. Weasel Word Detection
-        let weasel_regex = Regex::new(r"(?i)\b(many people|some people|it is believed|studies show|experts agree)\b").unwrap();
+        let weasel_regex = Regex::new(
+            r"(?i)\b(many people|some people|it is believed|studies show|experts agree)\b",
+        )
+        .unwrap();
         let mut weasel_count = 0;
 
         for scene in &script.scenes {
@@ -103,7 +109,10 @@ impl CredibilityAnalyzer {
             items.push(ChecklistItem {
                 passed: false,
                 category: "Clarity".to_string(),
-                message: format!("Detected {} instance(s) of weasel words (e.g., 'many people'). Be specific.", weasel_count),
+                message: format!(
+                    "Detected {} instance(s) of weasel words (e.g., 'many people'). Be specific.",
+                    weasel_count
+                ),
             });
         } else {
             items.push(ChecklistItem {
@@ -114,7 +123,10 @@ impl CredibilityAnalyzer {
         }
 
         // 3. Tone Consistency (Hype Check)
-        let hype_regex = Regex::new(r"(?i)\b(amazing|incredible|revolutionary|game-changing|miracle|best ever)\b").unwrap();
+        let hype_regex = Regex::new(
+            r"(?i)\b(amazing|incredible|revolutionary|game-changing|miracle|best ever)\b",
+        )
+        .unwrap();
         let mut hype_count = 0;
         let mut total_words = 0;
 
@@ -129,11 +141,14 @@ impl CredibilityAnalyzer {
 
         if total_words > 0 {
             let hype_ratio = hype_count as f32 / total_words as f32;
-            if hype_ratio > 0.05 { // >5% hype words
+            if hype_ratio > 0.05 {
+                // >5% hype words
                 items.push(ChecklistItem {
                     passed: false,
                     category: "Tone".to_string(),
-                    message: "High hype factor detected. Tone down superlatives for better credibility.".to_string(),
+                    message:
+                        "High hype factor detected. Tone down superlatives for better credibility."
+                            .to_string(),
                 });
             } else {
                 items.push(ChecklistItem {
@@ -265,20 +280,32 @@ mod tests {
         // Test with no citations
         let script = create_test_script(vec![], "Some content");
         let report = CredibilityAnalyzer::analyze(&script);
-        let citation_check = report.checklist.iter().find(|i| i.category == "Citations").unwrap();
+        let citation_check = report
+            .checklist
+            .iter()
+            .find(|i| i.category == "Citations")
+            .unwrap();
         assert!(!citation_check.passed);
 
         // Test with vague citation
         let script = create_test_script(vec!["Google".into()], "Some content");
         let report = CredibilityAnalyzer::analyze(&script);
-        let citation_check = report.checklist.iter().find(|i| i.category == "Citations").unwrap();
+        let citation_check = report
+            .checklist
+            .iter()
+            .find(|i| i.category == "Citations")
+            .unwrap();
         assert!(!citation_check.passed);
         assert!(citation_check.message.contains("too vague"));
 
         // Test with valid URL
         let script = create_test_script(vec!["https://rust-lang.org".into()], "Some content");
         let report = CredibilityAnalyzer::analyze(&script);
-        let citation_check = report.checklist.iter().find(|i| i.category == "Citations").unwrap();
+        let citation_check = report
+            .checklist
+            .iter()
+            .find(|i| i.category == "Citations")
+            .unwrap();
         assert!(citation_check.passed);
     }
 
@@ -286,16 +313,27 @@ mod tests {
     fn test_checklist_weasel_words() {
         let script = create_test_script(vec![], "Many people say this is good.");
         let report = CredibilityAnalyzer::analyze(&script);
-        let clarity_check = report.checklist.iter().find(|i| i.category == "Clarity").unwrap();
+        let clarity_check = report
+            .checklist
+            .iter()
+            .find(|i| i.category == "Clarity")
+            .unwrap();
         assert!(!clarity_check.passed);
         assert!(clarity_check.message.contains("weasel words"));
     }
 
     #[test]
     fn test_checklist_tone() {
-        let script = create_test_script(vec![], "This is the most amazing, incredible, revolutionary product ever!");
+        let script = create_test_script(
+            vec![],
+            "This is the most amazing, incredible, revolutionary product ever!",
+        );
         let report = CredibilityAnalyzer::analyze(&script);
-        let tone_check = report.checklist.iter().find(|i| i.category == "Tone").unwrap();
+        let tone_check = report
+            .checklist
+            .iter()
+            .find(|i| i.category == "Tone")
+            .unwrap();
         assert!(!tone_check.passed);
         assert!(tone_check.message.contains("High hype factor"));
     }
