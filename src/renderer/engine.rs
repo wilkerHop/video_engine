@@ -29,7 +29,9 @@ impl RenderEngine {
         if gpu_renderer.is_some() {
             println!("✨ GPU renderer initialized successfully");
         } else {
-            println!("ℹ️  Using CPU rendering (GPU unavailable, initialization failed, or disabled)");
+            println!(
+                "ℹ️  Using CPU rendering (GPU unavailable, initialization failed, or disabled)"
+            );
         }
 
         Self {

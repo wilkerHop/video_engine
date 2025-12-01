@@ -38,6 +38,31 @@ jobs:
           path: target
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Create CI Test Script
+        run: |
+          echo '{
+            "metadata": {
+              "title": "CI Demo",
+              "resolution": "640x360",
+              "fps": 30,
+              "duration": 2.0
+            },
+            "scenes": [
+              {
+                "id": "scene1",
+                "duration": 2.0,
+                "layers": [
+                  {
+                    "type": "text",
+                    "content": "CI Test",
+                    "font_size": 48.0,
+                    "position": { "x": 100, "y": 100 }
+                  }
+                ]
+              }
+            ]
+          }' > examples/ci_test.json
+
       - name: Run Render Command (CI Test)
         run: cargo run -- render examples/ci_test.json --output ci_output --renderer native --force-cpu
 
