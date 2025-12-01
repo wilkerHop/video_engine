@@ -183,10 +183,13 @@ impl BlenderRenderer {
                 let usage_percent = (used_memory as f64 / total_memory as f64) * 100.0;
 
                 if usage_percent > 99.0 {
-                    eprintln!("🚨 CRITICAL: Memory usage at {:.1}%! Killing process to prevent crash.", usage_percent);
+                    eprintln!(
+                        "🚨 CRITICAL: Memory usage at {:.1}%! Killing process to prevent crash.",
+                        usage_percent
+                    );
                     std::process::exit(1);
                 }
-                
+
                 thread::sleep(Duration::from_secs(1));
             }
         });

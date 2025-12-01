@@ -72,11 +72,16 @@ fn main() -> Result<()> {
         }
 
         // Check for renderer flag
-        let use_blender = args.windows(2).any(|w| w[0] == "--renderer" && w[1] == "blender");
+        let use_blender = args
+            .windows(2)
+            .any(|w| w[0] == "--renderer" && w[1] == "blender");
 
         if use_blender {
             println!("🎨 Using Blender Backend");
-            let renderer = interstellar_triangulum::renderer::BlenderRenderer::new(script.clone(), output_dir.to_path_buf());
+            let renderer = interstellar_triangulum::renderer::BlenderRenderer::new(
+                script.clone(),
+                output_dir.to_path_buf(),
+            );
             renderer.render()?;
         } else {
             println!("🎨 Using Native Engine (CPU/GPU)");
@@ -124,7 +129,7 @@ fn main() -> Result<()> {
             // We need to handle this difference or standardize
             // For now, BlenderRenderer outputs PNGs, so we need to tell VideoEncoder to look for PNGs?
             // VideoEncoder::encode takes a pattern.
-            
+
             let frame_pattern = if use_blender {
                 output_dir.join("frame_%d.png")
             } else {
