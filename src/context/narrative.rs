@@ -1,9 +1,11 @@
 use crate::script::VideoScript;
 
+use crate::analysis::narrative::NarrativeReport;
+
 pub struct NarrativeContext;
 
 impl NarrativeContext {
-    pub fn run(script: &VideoScript) {
+    pub fn run(script: &VideoScript) -> NarrativeReport {
         // Pillar 2: Narrative (Engaging) - Analysis
         println!("\n📊 Analyzing Narrative Structure...");
         let report = crate::analysis::narrative::NarrativeAnalyzer::analyze(script);
@@ -87,5 +89,7 @@ impl NarrativeContext {
                 );
             }
         }
+
+        report
     }
 }
