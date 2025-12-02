@@ -451,6 +451,27 @@ impl GpuRenderer {
         }
 
         {
+            // METAL OPTIMIZATION (Apple Silicon):
+            // This render pass configuration is optimized for Tile-Based Deferred Rendering (TBDR)
+            // architecture used by Apple Silicon GPUs.
+            //
+            // Key optimizations:
+            // 1. LoadOp::Clear - Initializes on-chip tile memory without loading from system RAM.
+            //    This is significantly faster than LoadOp::Load on TBDR architectures.
+            //    We use Clear because we always clear the frame buffer at the start of each frame.
+            //
+            // 2. StoreOp::Store - Writes tile memory back to system RAM after rendering.
+            //    Required in our case because we need to copy the result to a staging buffer
+            //    for CPU readback. If we were rendering intermediate passes that don't need
+            //    to be preserved, we could use StoreOp::Discard for better performance.
+            //
+            // TBDR Benefits:
+            // - Tile memory is on-chip (very fast)
+            // - System memory is off-chip (slower)
+            // - Clear avoids reading from system memory
+            // - Store writes final result to system memory
+            //
+            // See: Apple Metal Best Practices Documentation
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
