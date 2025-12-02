@@ -41,6 +41,8 @@ pub struct GpuRenderer {
     height: u32,
     vertex_buffer: wgpu::Buffer,
     vertices: std::cell::RefCell<Vec<Vertex>>,
+    output_texture: Option<wgpu::Texture>,
+    staging_buffer: Option<wgpu::Buffer>,
 }
 
 impl GpuRenderer {
@@ -112,6 +114,8 @@ impl GpuRenderer {
             height,
             vertex_buffer,
             vertices: std::cell::RefCell::new(Vec::new()),
+            output_texture: None,
+            staging_buffer: None,
         })
     }
 
@@ -171,7 +175,7 @@ impl GpuRenderer {
     }
 
     /// Flush accumulated vertices to GPU and render to frame buffer
-    pub fn flush(&self, frame_buffer: &mut FrameBuffer) -> Result<()> {
+    pub fn flush(&mut self, frame_buffer: &mut FrameBuffer) -> Result<()> {
         let start_time = std::time::Instant::now();
         let mut vertices = self.vertices.borrow_mut();
         if vertices.is_empty() {
@@ -185,11 +189,9 @@ impl GpuRenderer {
 
         let (width, height) = frame_buffer.dimensions();
 
-        // Create output texture
-        let output_texture = self
-            .context
-            .device
-            .create_texture(&wgpu::TextureDescriptor {
+        // Create or reuse output texture
+        if self.output_texture.is_none() {
+            let texture = self.context.device.create_texture(&wgpu::TextureDescriptor {
                 label: Some("Output Texture"),
                 size: wgpu::Extent3d {
                     width,
@@ -203,6 +205,9 @@ impl GpuRenderer {
                 usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
                 view_formats: &[],
             });
+            self.output_texture = Some(texture);
+        }
+        let output_texture = self.output_texture.as_ref().unwrap();
 
         let view = output_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
@@ -236,24 +241,28 @@ impl GpuRenderer {
             render_pass.draw(0..vertices.len() as u32, 0..1);
         }
 
-        // Read back to CPU
+        // Create or reuse staging buffer
         let buffer_size = (width * height * 4) as u64;
-        let staging_buffer = self.context.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("Staging Buffer"),
-            size: buffer_size,
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-            mapped_at_creation: false,
-        });
+        if self.staging_buffer.is_none() {
+            let buffer = self.context.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("Staging Buffer"),
+                size: buffer_size,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+                mapped_at_creation: false,
+            });
+            self.staging_buffer = Some(buffer);
+        }
+        let staging_buffer = self.staging_buffer.as_ref().unwrap();
 
         encoder.copy_texture_to_buffer(
             wgpu::TexelCopyTextureInfo {
-                texture: &output_texture,
+                texture: output_texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
             wgpu::TexelCopyBufferInfo {
-                buffer: &staging_buffer,
+                buffer: staging_buffer,
                 layout: wgpu::TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(4 * width),

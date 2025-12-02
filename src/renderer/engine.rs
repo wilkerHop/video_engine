@@ -76,7 +76,7 @@ impl RenderEngine {
 
     /// Flush GPU commands if available
     fn flush_gpu(&mut self) -> Result<()> {
-        if let Some(gpu) = &self.gpu_renderer {
+        if let Some(gpu) = &mut self.gpu_renderer {
             gpu.flush(&mut self.frame_buffer)?;
         }
         Ok(())
