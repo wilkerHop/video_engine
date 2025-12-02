@@ -191,20 +191,23 @@ impl GpuRenderer {
 
         // Create or reuse output texture
         if self.output_texture.is_none() {
-            let texture = self.context.device.create_texture(&wgpu::TextureDescriptor {
-                label: Some("Output Texture"),
-                size: wgpu::Extent3d {
-                    width,
-                    height,
-                    depth_or_array_layers: 1,
-                },
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: wgpu::TextureDimension::D2,
-                format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-                view_formats: &[],
-            });
+            let texture = self
+                .context
+                .device
+                .create_texture(&wgpu::TextureDescriptor {
+                    label: Some("Output Texture"),
+                    size: wgpu::Extent3d {
+                        width,
+                        height,
+                        depth_or_array_layers: 1,
+                    },
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                    usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+                    view_formats: &[],
+                });
             self.output_texture = Some(texture);
         }
         let output_texture = self.output_texture.as_ref().unwrap();
