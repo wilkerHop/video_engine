@@ -1,0 +1,51 @@
+name: Apple Silicon Optimization Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test-apple-silicon:
+    name: Test on Apple Silicon (M1)
+    runs-on: macos-14
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        components: clippy, rustfmt
+
+    - name: Cache Cargo dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Check formatting
+      run: cargo fmt -- --check
+
+    - name: Clippy
+      run: cargo clippy -- -D warnings
+
+    - name: Run Tests
+      run: cargo test --verbose
+
+    - name: Run Benchmarks
+      run: cargo bench --verbose
+
+    - name: Verify GPU Texture Rendering
+      # This runs the actual GPU rendering pipeline on the M1 runner
+      run: |
+        cargo run -- render examples/texture_test.json --renderer gpu --output output_texture_ci
