@@ -206,6 +206,7 @@ jobs:
     name: Deploy to GitHub Pages
     needs: build
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     permissions:
       pages: write
       id-token: write

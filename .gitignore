@@ -8,3 +8,4 @@ output.mp4
 tests/output_test/
 tests/output_profile/
 output_test/
+output_texture/

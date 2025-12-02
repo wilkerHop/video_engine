@@ -2,6 +2,7 @@ use crate::assets::AssetLoader;
 use crate::renderer::{Compositor, FrameBuffer, GpuRenderer, Timeline};
 use crate::script::{Layer, VideoScript};
 use anyhow::Result;
+use image::GenericImageView;
 
 /// Main rendering engine
 pub struct RenderEngine {
@@ -10,6 +11,8 @@ pub struct RenderEngine {
     frame_buffer: FrameBuffer,
     #[allow(dead_code)]
     gpu_renderer: Option<GpuRenderer>,
+    texture_cache:
+        std::collections::HashMap<std::path::PathBuf, (std::sync::Arc<wgpu::BindGroup>, u32, u32)>,
 }
 
 impl RenderEngine {
@@ -39,6 +42,7 @@ impl RenderEngine {
             timeline,
             frame_buffer,
             gpu_renderer,
+            texture_cache: std::collections::HashMap::new(),
         }
     }
 
@@ -63,7 +67,7 @@ impl RenderEngine {
 
                 // Render each layer
                 for layer in &layers {
-                    self.render_layer(layer)?;
+                    self.render_layer(layer, _asset_loader)?;
                 }
 
                 // Flush GPU commands after rendering all layers
@@ -83,17 +87,67 @@ impl RenderEngine {
     }
 
     /// Render a single layer
-    fn render_layer(&mut self, layer: &Layer) -> Result<()> {
+    fn render_layer(&mut self, layer: &Layer, asset_loader: &AssetLoader) -> Result<()> {
         match layer {
-            Layer::Image { transform, .. } => {
-                // Placeholder: draw colored rectangle for image
+            Layer::Image {
+                source, transform, ..
+            } => {
                 let (x, y) = Compositor::apply_transform(0, 0, transform);
-                let color = [100, 100, 200, 255];
+                let color = [255, 255, 255, 255];
 
-                if let Some(gpu) = &self.gpu_renderer {
-                    gpu.fill_rect(&mut self.frame_buffer, x, y, 100, 100, color)?;
+                if let Some(gpu) = &mut self.gpu_renderer {
+                    // Load texture if not in cache
+                    if !self.texture_cache.contains_key(source) {
+                        // Resolve path using AssetLoader (hacky access to private method or just join)
+                        // AssetLoader::resolve_path is private. But we can use base_path.
+                        let full_path = if source.is_absolute() {
+                            source.clone()
+                        } else {
+                            asset_loader.base_path().join(source)
+                        };
+
+                        if full_path.exists() {
+                            if let Ok(img) = image::open(&full_path) {
+                                let dims = img.dimensions();
+                                let bind_group = gpu.create_texture(&img);
+                                self.texture_cache
+                                    .insert(source.clone(), (bind_group, dims.0, dims.1));
+                            } else {
+                                println!(
+                                    "Failed to load image for texture: {}",
+                                    full_path.display()
+                                );
+                            }
+                        }
+                    }
+
+                    if let Some((bind_group, w, h)) = self.texture_cache.get(source) {
+                        // Apply scale from transform
+                        let scale = transform.scale;
+                        let draw_w = (*w as f32 * scale) as u32;
+                        let draw_h = (*h as f32 * scale) as u32;
+
+                        gpu.draw_texture(bind_group.clone(), x, y, draw_w, draw_h, color)?;
+                    } else {
+                        // Fallback to colored rect if texture failed
+                        gpu.fill_rect(
+                            &mut self.frame_buffer,
+                            x,
+                            y,
+                            100,
+                            100,
+                            [100, 100, 200, 255],
+                        )?;
+                    }
                 } else {
-                    Compositor::fill_rect(&mut self.frame_buffer, x, y, 100, 100, color);
+                    Compositor::fill_rect(
+                        &mut self.frame_buffer,
+                        x,
+                        y,
+                        100,
+                        100,
+                        [100, 100, 200, 255],
+                    );
                 }
             }
             Layer::Video { transform, .. } => {
