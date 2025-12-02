@@ -2,7 +2,13 @@ use crate::assets::AssetLoader;
 use crate::renderer::{Compositor, FrameBuffer, GpuRenderer, Timeline};
 use crate::script::{Layer, VideoScript};
 use anyhow::Result;
+use dashmap::DashMap;
 use image::GenericImageView;
+use rayon::prelude::*;
+use std::sync::Arc;
+
+/// Cached texture entry: (BindGroup, width, height)
+type TextureCacheEntry = (Arc<wgpu::BindGroup>, u32, u32);
 
 /// Main rendering engine
 pub struct RenderEngine {
@@ -11,8 +17,7 @@ pub struct RenderEngine {
     frame_buffer: FrameBuffer,
     #[allow(dead_code)]
     gpu_renderer: Option<GpuRenderer>,
-    texture_cache:
-        std::collections::HashMap<std::path::PathBuf, (std::sync::Arc<wgpu::BindGroup>, u32, u32)>,
+    texture_cache: Arc<DashMap<std::path::PathBuf, TextureCacheEntry>>,
 }
 
 impl RenderEngine {
@@ -42,7 +47,7 @@ impl RenderEngine {
             timeline,
             frame_buffer,
             gpu_renderer,
-            texture_cache: std::collections::HashMap::new(),
+            texture_cache: Arc::new(DashMap::new()),
         }
     }
 
@@ -65,7 +70,42 @@ impl RenderEngine {
                 // Collect layers to avoid borrowing issues
                 let layers: Vec<_> = scene.layers.clone();
 
-                // Render each layer
+                // Parallel: Load all images from disk concurrently
+                // This is the IO-bound bottleneck, so parallelizing it helps significantly
+                let loaded_images: Vec<_> = layers
+                    .par_iter()
+                    .filter_map(|layer| {
+                        if let Layer::Image { source, .. } = layer {
+                            if !self.texture_cache.contains_key(source) {
+                                let full_path = if source.is_absolute() {
+                                    source.clone()
+                                } else {
+                                    _asset_loader.base_path().join(source)
+                                };
+
+                                if full_path.exists() {
+                                    if let Ok(img) = image::open(&full_path) {
+                                        return Some((source.clone(), img));
+                                    }
+                                }
+                            }
+                        }
+                        None
+                    })
+                    .collect();
+
+                // Sequential: Create GPU textures from loaded images
+                // GPURenderer is not Sync, so this must be done sequentially
+                if let Some(gpu) = &self.gpu_renderer {
+                    for (source, img) in loaded_images {
+                        let dims = img.dimensions();
+                        let bind_group = gpu.create_texture(&img);
+                        self.texture_cache
+                            .insert(source, (bind_group, dims.0, dims.1));
+                    }
+                }
+
+                // Sequential: Render each layer (GPU command submission) (GPU command submission)
                 for layer in &layers {
                     self.render_layer(layer, _asset_loader)?;
                 }
@@ -121,7 +161,8 @@ impl RenderEngine {
                         }
                     }
 
-                    if let Some((bind_group, w, h)) = self.texture_cache.get(source) {
+                    if let Some(entry) = self.texture_cache.get(source) {
+                        let (bind_group, w, h) = entry.value();
                         // Apply scale from transform
                         let scale = transform.scale;
                         let draw_w = (*w as f32 * scale) as u32;
