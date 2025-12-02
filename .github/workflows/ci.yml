@@ -217,11 +217,31 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download Video Artifact
+      - name: Download Linux Video
         uses: actions/download-artifact@v4
         with:
           name: demo-video-Linux
-          path: video-artifact
+          path: video-linux
+
+      - name: Download macOS Video
+        uses: actions/download-artifact@v4
+        with:
+          name: demo-video-macOS
+          path: video-macos
+
+      - name: Download Windows Video
+        uses: actions/download-artifact@v4
+        with:
+          name: demo-video-Windows
+          path: video-windows
+
+      - name: Download Apple Silicon Image
+        # Note: Apple Silicon test produces an image frame, not a video yet
+        uses: actions/download-artifact@v4
+        continue-on-error: true # Optional, in case the other workflow hasn't finished
+        with:
+          name: demo-video-AppleSilicon
+          path: video-apple-silicon
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -230,7 +250,12 @@ jobs:
         run: |
           mkdir public
           cp index.html public/
-          mv video-artifact/output.mp4 public/
+          
+          # Copy artifacts if they exist
+          [ -f video-linux/output.mp4 ] && cp video-linux/output.mp4 public/output-linux.mp4
+          [ -f video-macos/output.mp4 ] && cp video-macos/output.mp4 public/output-macos.mp4
+          [ -f video-windows/output.mp4 ] && cp video-windows/output.mp4 public/output-windows.mp4
+          [ -f video-apple-silicon/frame_0.png ] && cp video-apple-silicon/frame_0.png public/output-apple-silicon.png
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3

@@ -52,3 +52,9 @@ jobs:
       # This runs the actual GPU rendering pipeline on the M1 runner
       run: |
         cargo run -- render examples/texture_test.json --renderer gpu --output output_texture_ci
+
+    - name: Upload Video Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: demo-video-AppleSilicon
+        path: output_texture_ci/frame_0.png
