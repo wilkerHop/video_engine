@@ -1,0 +1,22 @@
+{
+  "metadata": {
+    "title": "Texture Test",
+    "resolution": "640x360",
+    "fps": 30,
+    "duration": 2.0
+  },
+  "scenes": [
+    {
+      "id": "scene1",
+      "duration": 2.0,
+      "layers": [
+        {
+          "type": "image",
+          "source": "examples/assets/test.ppm",
+          "position": { "x": 100, "y": 100 },
+          "transform": { "scale": 1.0 }
+        }
+      ]
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 use anyhow::Result;
 use bytemuck::{Pod, Zeroable};
 use wgpu;
+use image::GenericImageView;
 
 use crate::renderer::{FrameBuffer, GpuContext};
 
@@ -9,6 +10,7 @@ use crate::renderer::{FrameBuffer, GpuContext};
 struct Vertex {
     position: [f32; 2],
     color: [f32; 4],
+    uv: [f32; 2],
 }
 
 impl Vertex {
@@ -27,6 +29,11 @@ impl Vertex {
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float32x4,
                 },
+                wgpu::VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 6]>() as wgpu::BufferAddress,
+                    shader_location: 2,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
             ],
         }
     }
@@ -40,7 +47,9 @@ pub struct GpuRenderer {
     width: u32,
     height: u32,
     vertex_buffer: wgpu::Buffer,
-    vertices: std::cell::RefCell<Vec<Vertex>>,
+    batches: std::cell::RefCell<Vec<(std::sync::Arc<wgpu::BindGroup>, Vec<Vertex>)>>,
+    white_texture_bind_group: std::sync::Arc<wgpu::BindGroup>,
+    texture_bind_group_layout: wgpu::BindGroupLayout,
     output_texture: Option<wgpu::Texture>,
     staging_buffer: Option<wgpu::Buffer>,
 }
@@ -58,12 +67,38 @@ impl GpuRenderer {
                 source: wgpu::ShaderSource::Wgsl(include_str!("shaders.wgsl").into()),
             });
 
+        // Create texture bind group layout
+        let texture_bind_group_layout =
+            context
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Texture Bind Group Layout"),
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                    ],
+                });
+
         let pipeline_layout =
             context
                 .device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                     label: Some("Render Pipeline Layout"),
-                    bind_group_layouts: &[],
+                    bind_group_layouts: &[&texture_bind_group_layout],
                     push_constant_ranges: &[],
                 });
 
@@ -81,7 +116,7 @@ impl GpuRenderer {
                     },
                     fragment: Some(wgpu::FragmentState {
                         module: &shader,
-                        entry_point: Some("fs_main"),
+                        entry_point: Some("fs_texture"),
                         targets: &[Some(wgpu::ColorTargetState {
                             format: wgpu::TextureFormat::Rgba8UnormSrgb,
                             blend: Some(wgpu::BlendState::ALPHA_BLENDING),
@@ -99,6 +134,64 @@ impl GpuRenderer {
                     cache: None,
                 });
 
+        // Create 1x1 white texture
+        let white_texture_size = wgpu::Extent3d {
+            width: 1,
+            height: 1,
+            depth_or_array_layers: 1,
+        };
+        let white_texture = context.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("White Texture"),
+            size: white_texture_size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+        context.queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &white_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &[255, 255, 255, 255],
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(4),
+                rows_per_image: Some(1),
+            },
+            white_texture_size,
+        );
+
+        let white_texture_view = white_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let white_sampler = context.device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+
+        let white_texture_bind_group = context.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&white_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&white_sampler),
+                },
+            ],
+            label: Some("White Texture Bind Group"),
+        });
+
         // Create initial vertex buffer (large enough for many quads)
         let vertex_buffer = context.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Vertex Buffer"),
@@ -113,16 +206,85 @@ impl GpuRenderer {
             width,
             height,
             vertex_buffer,
-            vertices: std::cell::RefCell::new(Vec::new()),
+            batches: std::cell::RefCell::new(Vec::new()),
+            white_texture_bind_group: std::sync::Arc::new(white_texture_bind_group),
+            texture_bind_group_layout,
             output_texture: None,
             staging_buffer: None,
         })
     }
 
-    /// Fill a rectangle with a color using GPU batching
-    pub fn fill_rect(
+
+
+    /// Create a texture from an image
+    pub fn create_texture(&self, image: &image::DynamicImage) -> std::sync::Arc<wgpu::BindGroup> {
+        let rgba = image.to_rgba8();
+        let dimensions = image.dimensions();
+
+        let size = wgpu::Extent3d {
+            width: dimensions.0,
+            height: dimensions.1,
+            depth_or_array_layers: 1,
+        };
+
+        let texture = self.context.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Image Texture"),
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+
+        self.context.queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &rgba,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * dimensions.0),
+                rows_per_image: Some(dimensions.1),
+            },
+            size,
+        );
+
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let sampler = self.context.device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+
+        std::sync::Arc::new(self.context.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &self.texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
+            ],
+            label: Some("Image Texture Bind Group"),
+        }))
+    }
+
+    /// Draw a textured rectangle
+    pub fn draw_texture(
         &self,
-        _frame_buffer: &mut FrameBuffer,
+        bind_group: std::sync::Arc<wgpu::BindGroup>,
         x: i32,
         y: i32,
         width: u32,
@@ -143,49 +305,81 @@ impl GpuRenderer {
         ];
 
         // Two triangles to make a rectangle
-        let mut vertices = self.vertices.borrow_mut();
-        vertices.extend_from_slice(&[
+        let new_vertices = vec![
             Vertex {
                 position: [x1, y1],
                 color: color_norm,
+                uv: [0.0, 0.0],
             },
             Vertex {
                 position: [x2, y1],
                 color: color_norm,
+                uv: [1.0, 0.0],
             },
             Vertex {
                 position: [x2, y2],
                 color: color_norm,
+                uv: [1.0, 1.0],
             },
             Vertex {
                 position: [x1, y1],
                 color: color_norm,
+                uv: [0.0, 0.0],
             },
             Vertex {
                 position: [x2, y2],
                 color: color_norm,
+                uv: [1.0, 1.0],
             },
             Vertex {
                 position: [x1, y2],
                 color: color_norm,
+                uv: [0.0, 1.0],
             },
-        ]);
+        ];
 
+        let mut batches = self.batches.borrow_mut();
+        
+        // Check if we can merge with the last batch
+        if let Some(last_batch) = batches.last_mut() {
+            if std::sync::Arc::ptr_eq(&last_batch.0, &bind_group) {
+                last_batch.1.extend(new_vertices);
+                return Ok(());
+            }
+        }
+
+        // Create new batch
+        batches.push((bind_group, new_vertices));
         Ok(())
+    }
+
+    /// Fill a rectangle with a color using GPU batching
+    pub fn fill_rect(
+        &self,
+        _frame_buffer: &mut FrameBuffer,
+        x: i32,
+        y: i32,
+        width: u32,
+        height: u32,
+        color: [u8; 4],
+    ) -> Result<()> {
+        self.draw_texture(
+            self.white_texture_bind_group.clone(),
+            x,
+            y,
+            width,
+            height,
+            color,
+        )
     }
 
     /// Flush accumulated vertices to GPU and render to frame buffer
     pub fn flush(&mut self, frame_buffer: &mut FrameBuffer) -> Result<()> {
         let start_time = std::time::Instant::now();
-        let mut vertices = self.vertices.borrow_mut();
-        if vertices.is_empty() {
+        let mut batches = self.batches.borrow_mut();
+        if batches.is_empty() {
             return Ok(());
         }
-
-        // Upload vertices to GPU
-        self.context
-            .queue
-            .write_buffer(&self.vertex_buffer, 0, bytemuck::cast_slice(&vertices));
 
         let (width, height) = frame_buffer.dimensions();
 
@@ -222,6 +416,18 @@ impl GpuRenderer {
                     label: Some("Render Encoder"),
                 });
 
+        // Upload all vertices to the buffer at different offsets
+        let mut current_offset = 0;
+        for (_, vertices) in batches.iter() {
+            let bytes = bytemuck::cast_slice(vertices);
+            self.context.queue.write_buffer(
+                &self.vertex_buffer,
+                current_offset,
+                bytes,
+            );
+            current_offset += bytes.len() as u64;
+        }
+
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
@@ -240,8 +446,18 @@ impl GpuRenderer {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.draw(0..vertices.len() as u32, 0..1);
+
+            let mut draw_offset = 0;
+            for (bind_group, vertices) in batches.iter() {
+                let vertex_count = vertices.len() as u32;
+                let byte_size = (vertex_count as usize * std::mem::size_of::<Vertex>()) as u64;
+                
+                render_pass.set_bind_group(0, bind_group.as_ref(), &[]);
+                render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(draw_offset..draw_offset + byte_size));
+                render_pass.draw(0..vertex_count, 0..1);
+
+                draw_offset += byte_size;
+            }
         }
 
         // Create or reuse staging buffer
@@ -312,8 +528,8 @@ impl GpuRenderer {
             staging_buffer.unmap();
         });
 
-        // Clear vertices for next frame
-        vertices.clear();
+        // Clear batches for next frame
+        batches.clear();
 
         let duration = start_time.elapsed();
         println!("GPU Flush: {:.3}ms", duration.as_secs_f64() * 1000.0);
