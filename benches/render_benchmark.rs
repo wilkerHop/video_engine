@@ -39,7 +39,7 @@ fn create_test_script() -> VideoScript {
 
 fn bench_render_frame(c: &mut Criterion) {
     let script = create_test_script();
-    let mut engine = RenderEngine::new(script);
+    let mut engine = RenderEngine::new(script, false);
     let mut loader = AssetLoader::new(PathBuf::from("."));
 
     c.bench_function("render_frame_1080p", |b| {
