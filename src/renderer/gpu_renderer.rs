@@ -172,6 +172,7 @@ impl GpuRenderer {
 
     /// Flush accumulated vertices to GPU and render to frame buffer
     pub fn flush(&self, frame_buffer: &mut FrameBuffer) -> Result<()> {
+        let start_time = std::time::Instant::now();
         let mut vertices = self.vertices.borrow_mut();
         if vertices.is_empty() {
             return Ok(());
@@ -277,14 +278,19 @@ impl GpuRenderer {
             buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
                 tx.send(result).unwrap();
             });
-            self.context
-                .device
-                .poll(wgpu::PollType::Wait {
-                    submission_index: Some(index),
-                    timeout: None,
-                })
-                .unwrap();
-            rx.recv().unwrap().unwrap();
+            loop {
+                self.context
+                    .device
+                    .poll(wgpu::PollType::Wait {
+                        submission_index: Some(index.clone()),
+                        timeout: None,
+                    })
+                    .unwrap();
+                if let Ok(res) = rx.try_recv() {
+                    res.unwrap();
+                    break;
+                }
+            }
 
             {
                 let data = buffer_slice.get_mapped_range();
@@ -296,6 +302,9 @@ impl GpuRenderer {
 
         // Clear vertices for next frame
         vertices.clear();
+
+        let duration = start_time.elapsed();
+        println!("GPU Flush: {:.3}ms", duration.as_secs_f64() * 1000.0);
 
         Ok(())
     }

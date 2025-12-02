@@ -82,18 +82,20 @@ impl FrameBuffer {
 
     /// Save as PPM (simple image format)
     pub fn save_ppm(&self, path: &str) -> Result<()> {
-        let mut file = File::create(path)?;
+        let file = File::create(path)?;
+        let mut writer = std::io::BufWriter::new(file);
 
         // PPM header
-        writeln!(file, "P6")?;
-        writeln!(file, "{} {}", self.width, self.height)?;
-        writeln!(file, "255")?;
+        writeln!(writer, "P6")?;
+        writeln!(writer, "{} {}", self.width, self.height)?;
+        writeln!(writer, "255")?;
 
         // Write RGB data (skip alpha channel)
         for chunk in self.pixels.chunks_exact(4) {
-            file.write_all(&chunk[0..3])?;
+            writer.write_all(&chunk[0..3])?;
         }
 
+        writer.flush()?;
         Ok(())
     }
 }

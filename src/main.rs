@@ -36,6 +36,10 @@ enum Commands {
         /// Fail on low narrative score
         #[arg(long)]
         fail_on_low_score: Option<u32>,
+
+        /// Force CPU rendering (disable GPU)
+        #[arg(long)]
+        force_cpu: bool,
     },
 
     /// Validate script without rendering
@@ -102,16 +106,20 @@ fn main() -> Result<()> {
             output,
             export_report,
             fail_on_low_score,
+            force_cpu,
         }) => {
             let renderer_engine = renderer.unwrap_or(config.renderer.engine.clone());
-            let output_dir = output.map(std::path::PathBuf::from).unwrap_or(config.renderer.output_dir.clone());
-            
+            let output_dir = output
+                .map(std::path::PathBuf::from)
+                .unwrap_or(config.renderer.output_dir.clone());
+
             run_render(
                 &script,
                 &renderer_engine,
                 &output_dir,
                 export_report,
                 fail_on_low_score,
+                force_cpu,
             )?;
         }
         None => {
@@ -136,8 +144,10 @@ fn run_validation(script_path: &str, fail_on_warnings: bool) -> Result<()> {
     println!("{}", ScriptParser::summarize(&script));
 
     // Run Analysis
-    let narrative_report = interstellar_triangulum::context::narrative::NarrativeContext::run(&script);
-    let credibility_report = interstellar_triangulum::context::credibility::CredibilityContext::run(&script);
+    let narrative_report =
+        interstellar_triangulum::context::narrative::NarrativeContext::run(&script);
+    let credibility_report =
+        interstellar_triangulum::context::credibility::CredibilityContext::run(&script);
 
     if fail_on_warnings {
         let has_warnings = !narrative_report.structure_valid
@@ -162,6 +172,7 @@ fn run_render(
     output_dir: &Path,
     export_report: Option<String>,
     fail_on_low_score: Option<u32>,
+    force_cpu: bool,
 ) -> Result<()> {
     let script_path = Path::new(script_path);
     println!("🎬 Video Engine - Digital Artisan PoC\n");
@@ -177,7 +188,8 @@ fn run_render(
     let mut loader = AssetLoader::new(base_path);
 
     // Pillar 2: Narrative (Engaging)
-    let narrative_report = interstellar_triangulum::context::narrative::NarrativeContext::run(&script);
+    let narrative_report =
+        interstellar_triangulum::context::narrative::NarrativeContext::run(&script);
 
     // Pillar 3: Credibility (Trustworthy)
     interstellar_triangulum::context::credibility::CredibilityContext::run(&script);
@@ -185,7 +197,7 @@ fn run_render(
     // Export Report
     if let Some(path) = export_report {
         let path = Path::new(&path);
-        let content = if path.extension().map_or(false, |ext| ext == "json") {
+        let content = if path.extension().is_some_and(|ext| ext == "json") {
             // JSON Export
             serde_json::to_string_pretty(&narrative_report)?
         } else {
@@ -198,7 +210,10 @@ fn run_render(
             );
 
             for rec in &narrative_report.structure_recommendations {
-                md.push_str(&format!("- **[{:?}]** {}: {}\n", rec.severity, rec.category, rec.message));
+                md.push_str(&format!(
+                    "- **[{:?}]** {}: {}\n",
+                    rec.severity, rec.category, rec.message
+                ));
             }
             md
         };
@@ -249,12 +264,14 @@ fn run_render(
     }
 
     let use_blender = renderer_engine == "blender";
+    let use_gpu = !force_cpu;
 
     interstellar_triangulum::context::performance::PerformanceContext::run(
         &script,
         &mut loader,
         output_dir,
         use_blender,
+        use_gpu,
     )?;
 
     println!("\n📊 Asset Statistics:");

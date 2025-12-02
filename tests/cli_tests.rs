@@ -4,7 +4,7 @@ use std::fs;
 
 #[test]
 fn test_cli_help() {
-    let mut cmd = Command::cargo_bin("interstellar-triangulum").unwrap();
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_interstellar-triangulum"));
     cmd.arg("--help")
         .assert()
         .success()
@@ -13,7 +13,7 @@ fn test_cli_help() {
 
 #[test]
 fn test_cli_template_generation() {
-    let mut cmd = Command::cargo_bin("interstellar-triangulum").unwrap();
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_interstellar-triangulum"));
     let assert = cmd
         .arg("template")
         .arg("explainer")
@@ -28,7 +28,7 @@ fn test_cli_template_generation() {
 
 #[test]
 fn test_cli_validate_simple() {
-    let mut cmd = Command::cargo_bin("interstellar-triangulum").unwrap();
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_interstellar-triangulum"));
     cmd.arg("validate")
         .arg("examples/simple.json")
         .assert()
@@ -41,13 +41,14 @@ fn test_cli_render_simple() {
     // Ensure output directory is clean
     let _ = fs::remove_dir_all("tests/output_test");
 
-    let mut cmd = Command::cargo_bin("interstellar-triangulum").unwrap();
+    let mut cmd = Command::new(env!("CARGO_BIN_EXE_interstellar-triangulum"));
     cmd.arg("render")
-        .arg("examples/simple.json")
+        .arg("tests/test_config.json")
         .arg("--output")
         .arg("tests/output_test")
         .arg("--renderer")
         .arg("native")
+        .arg("--force-cpu")
         .assert()
         .success()
         .stdout(predicate::str::contains("Video created successfully"));

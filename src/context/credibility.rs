@@ -1,6 +1,5 @@
-use crate::analysis::credibility::CredibilityAnalyzer;
-use crate::script::VideoScript;
 use crate::analysis::credibility::CredibilityReport;
+use crate::script::VideoScript;
 
 pub struct CredibilityContext;
 
@@ -11,11 +10,15 @@ impl CredibilityContext {
         let report = crate::analysis::credibility::CredibilityAnalyzer::analyze(script);
 
         println!("   Score: {}/100", report.score);
-        
+
         if !report.claims.is_empty() {
             println!("   🔍 Detected {} claims:", report.claims.len());
             for claim in &report.claims {
-                let status = if claim.verified { "✅ Verified" } else { "⚠️ Unverified" };
+                let status = if claim.verified {
+                    "✅ Verified"
+                } else {
+                    "⚠️ Unverified"
+                };
                 println!("      - [{}] \"{}\" ({})", status, claim.text, claim.reason);
             }
         } else {

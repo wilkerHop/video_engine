@@ -1,6 +1,4 @@
-use crate::script::{
-    Color, Layer, Metadata, Position, Resolution, Scene, SceneType, VideoScript,
-};
+use crate::script::{Color, Layer, Metadata, Position, Resolution, Scene, SceneType, VideoScript};
 use clap::ValueEnum;
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -36,9 +34,24 @@ impl ScriptTemplate {
                 citations: vec![],
             },
             scenes: vec![
-                Self::create_scene("Hook", SceneType::Hook, hook_duration, "Hook: Grab Attention"),
-                Self::create_scene("Body", SceneType::Body, body_duration, "Body: Explain Concept"),
-                Self::create_scene("Payoff", SceneType::Payoff, payoff_duration, "Payoff: Call to Action"),
+                Self::create_scene(
+                    "Hook",
+                    SceneType::Hook,
+                    hook_duration,
+                    "Hook: Grab Attention",
+                ),
+                Self::create_scene(
+                    "Body",
+                    SceneType::Body,
+                    body_duration,
+                    "Body: Explain Concept",
+                ),
+                Self::create_scene(
+                    "Payoff",
+                    SceneType::Payoff,
+                    payoff_duration,
+                    "Payoff: Call to Action",
+                ),
             ],
             audio: None,
         }
@@ -59,9 +72,24 @@ impl ScriptTemplate {
                 citations: vec![],
             },
             scenes: vec![
-                Self::create_scene("Intro", SceneType::Hook, intro_duration, "Intro: What we'll build"),
-                Self::create_scene("Steps", SceneType::Body, steps_duration, "Steps: Step-by-step guide"),
-                Self::create_scene("Recap", SceneType::Payoff, recap_duration, "Recap: Summary & Next Steps"),
+                Self::create_scene(
+                    "Intro",
+                    SceneType::Hook,
+                    intro_duration,
+                    "Intro: What we'll build",
+                ),
+                Self::create_scene(
+                    "Steps",
+                    SceneType::Body,
+                    steps_duration,
+                    "Steps: Step-by-step guide",
+                ),
+                Self::create_scene(
+                    "Recap",
+                    SceneType::Payoff,
+                    recap_duration,
+                    "Recap: Summary & Next Steps",
+                ),
             ],
             audio: None,
         }
@@ -82,9 +110,24 @@ impl ScriptTemplate {
                 citations: vec![],
             },
             scenes: vec![
-                Self::create_scene("Setup", SceneType::Hook, setup_duration, "Setup: The World & Characters"),
-                Self::create_scene("Conflict", SceneType::Body, conflict_duration, "Conflict: The Challenge"),
-                Self::create_scene("Resolution", SceneType::Payoff, resolution_duration, "Resolution: The Change"),
+                Self::create_scene(
+                    "Setup",
+                    SceneType::Hook,
+                    setup_duration,
+                    "Setup: The World & Characters",
+                ),
+                Self::create_scene(
+                    "Conflict",
+                    SceneType::Body,
+                    conflict_duration,
+                    "Conflict: The Challenge",
+                ),
+                Self::create_scene(
+                    "Resolution",
+                    SceneType::Payoff,
+                    resolution_duration,
+                    "Resolution: The Change",
+                ),
             ],
             audio: None,
         }
@@ -99,7 +142,12 @@ impl ScriptTemplate {
                 content: text.into(),
                 font: "assets/fonts/Inter-Bold.ttf".into(),
                 font_size: 60.0,
-                color: Color { r: 255, g: 255, b: 255, a: 255 },
+                color: Color {
+                    r: 255,
+                    g: 255,
+                    b: 255,
+                    a: 255,
+                },
                 position: Position { x: 960, y: 540 },
                 effects: vec![],
             }],

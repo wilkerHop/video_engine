@@ -14,18 +14,24 @@ pub struct RenderEngine {
 
 impl RenderEngine {
     /// Create new render engine from script
-    pub fn new(script: VideoScript) -> Self {
+    pub fn new(script: VideoScript, use_gpu: bool) -> Self {
         let (width, height) = script.metadata.resolution.dimensions();
         let timeline = Timeline::from_script(&script);
         let frame_buffer = FrameBuffer::new(width, height);
 
         // Try to initialize GPU renderer (optional - falls back to CPU if fails)
-        let gpu_renderer = pollster::block_on(async { GpuRenderer::new(width, height).await.ok() });
+        let gpu_renderer = if use_gpu {
+            pollster::block_on(async { GpuRenderer::new(width, height).await.ok() })
+        } else {
+            None
+        };
 
         if gpu_renderer.is_some() {
             println!("✨ GPU renderer initialized successfully");
         } else {
-            println!("ℹ️  Using CPU rendering (GPU unavailable or initialization failed)");
+            println!(
+                "ℹ️  Using CPU rendering (GPU unavailable, initialization failed, or disabled)"
+            );
         }
 
         Self {
@@ -164,7 +170,7 @@ mod tests {
     #[test]
     fn test_render_engine_creation() {
         let script = create_test_script();
-        let engine = RenderEngine::new(script);
+        let engine = RenderEngine::new(script, false); // Default to CPU for basic test
         assert_eq!(engine.timeline().total_frames(), 600);
     }
 
@@ -196,7 +202,7 @@ mod tests {
     #[test]
     fn test_gpu_renderer_integration() {
         let script = create_test_script();
-        let engine = RenderEngine::new(script);
+        let engine = RenderEngine::new(script, true); // Try GPU
 
         // Engine should be created successfully regardless of GPU availability
         assert_eq!(engine.timeline().total_frames(), 600);
@@ -208,7 +214,7 @@ mod tests {
     #[test]
     fn test_render_frame_with_gpu() {
         let script = create_test_script();
-        let mut engine = RenderEngine::new(script);
+        let mut engine = RenderEngine::new(script, true); // Try GPU
         let mut asset_loader = AssetLoader::new(".");
 
         // Should not panic even if GPU is not available (fallback to CPU)

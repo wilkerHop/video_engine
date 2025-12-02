@@ -11,6 +11,7 @@ impl PerformanceContext {
         loader: &mut AssetLoader,
         output_dir: &Path,
         use_blender: bool,
+        use_gpu: bool,
     ) -> Result<()> {
         // 1. Rendering
         println!("\n🎬 Rendering frames...");
@@ -26,7 +27,7 @@ impl PerformanceContext {
             renderer.render()?;
         } else {
             println!("🎨 Using Native Engine (CPU/GPU)");
-            let mut engine = crate::renderer::RenderEngine::new(script.clone());
+            let mut engine = crate::renderer::RenderEngine::new(script.clone(), use_gpu);
             engine.render(output_dir, loader)?;
         }
 

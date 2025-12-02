@@ -1,0 +1,26 @@
+{
+  "metadata": {
+    "title": "Test Video",
+    "resolution": "640x360",
+    "fps": 30,
+    "duration": 1.0,
+    "description": "Short test video"
+  },
+  "scenes": [
+    {
+      "id": "scene1",
+      "duration": 1.0,
+      "scene_type": "hook",
+      "layers": [
+        {
+          "type": "text",
+          "content": "Test",
+          "font": "assets/font.ttf",
+          "font_size": 32,
+          "color": { "r": 255, "g": 255, "b": 255 },
+          "position": { "x": 320, "y": 180 }
+        }
+      ]
+    }
+  ]
+}

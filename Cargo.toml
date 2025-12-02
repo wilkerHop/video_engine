@@ -32,3 +32,6 @@ predicates = "3.0"
 [[bench]]
 name = "render_benchmark"
 harness = false
+
+[profile.release]
+debug = true

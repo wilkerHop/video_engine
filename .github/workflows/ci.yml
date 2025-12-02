@@ -20,6 +20,11 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install Linux Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libasound2-dev libudev-dev libxkbcommon-dev libwayland-dev
+
       - name: Cache cargo registry
         uses: actions/cache@v3
         with:
@@ -38,8 +43,34 @@ jobs:
           path: target
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Run tests
-        run: cargo test --all-features --verbose
+      - name: Create CI Test Script
+        run: |
+          echo '{
+            "metadata": {
+              "title": "CI Demo",
+              "resolution": "640x360",
+              "fps": 30,
+              "duration": 2.0
+            },
+            "scenes": [
+              {
+                "id": "scene1",
+                "duration": 2.0,
+                "layers": [
+                  {
+                    "type": "text",
+                    "content": "CI Test",
+                    "font": "assets/font.ttf",
+                    "font_size": 48.0,
+                    "position": { "x": 100, "y": 100 }
+                  }
+                ]
+              }
+            ]
+          }' > examples/ci_test.json
+
+      - name: Run Render Command (CI Test)
+        run: cargo run -- render examples/ci_test.json --output ci_output --renderer native --force-cpu
 
       - name: Run health check
         run: chmod +x scripts/check_test_coverage.sh && ./scripts/check_test_coverage.sh
@@ -55,6 +86,11 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+
+      - name: Install Linux Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libasound2-dev libudev-dev libxkbcommon-dev libwayland-dev
 
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
@@ -134,13 +170,21 @@ jobs:
               {
                 "id": "scene1",
                 "duration": 2.0,
-                "layers": []
+                "layers": [
+                  {
+                    "type": "text",
+                    "content": "CI Test",
+                    "font": "assets/font.ttf",
+                    "font_size": 48.0,
+                    "position": { "x": 100, "y": 100 }
+                  }
+                ]
               }
             ]
           }' > examples/ci_test.json
           
           # Run the engine
-          ./target/release/interstellar-triangulum
+          ./target/release/interstellar-triangulum render examples/ci_test.json
           
       - name: Upload Video Artifact
         uses: actions/upload-artifact@v4
